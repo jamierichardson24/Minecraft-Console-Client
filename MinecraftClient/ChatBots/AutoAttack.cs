@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using MinecraftClient.Mapping;
+using MinecraftClient.EntityHandler;
 using MinecraftClient.Scripting;
 using Tomlet.Attributes;
 
@@ -33,9 +33,6 @@ namespace MinecraftClient.ChatBots
             [TomlInlineComment("$ChatBot.AutoAttack.Interaction$")]
             public InteractType Interaction = InteractType.Attack;
 
-            [TomlInlineComment("$ChatBot.AutoAttack.Attack_Range$")]
-            public double Attack_Range = 4.0;
-
             [TomlInlineComment("$ChatBot.AutoAttack.Attack_Hostile$")]
             public bool Attack_Hostile = true;
 
@@ -55,12 +52,6 @@ namespace MinecraftClient.ChatBots
                     LogToConsole(BotName, Translations.bot_autoAttack_invalidcooldown);
                     Cooldown_Time.value = 1.0;
                 }
-
-                if (Attack_Range < 1.0)
-                    Attack_Range = 1.0;
-
-                if (Attack_Range > 4.0)
-                    Attack_Range = 4.0;
             }
 
             public enum AttackMode { single, multi };
@@ -100,7 +91,7 @@ namespace MinecraftClient.ChatBots
         private Double attackSpeed = 4;
         private Double attackCooldownSeconds;
         private readonly bool overrideAttackSpeed = false;
-        private readonly double attackRange = 4.0;
+        private readonly int attackRange = 4;
         private Double serverTPS;
         private float health = 100;
         private readonly bool attackHostile = true;
@@ -117,7 +108,6 @@ namespace MinecraftClient.ChatBots
 
             attackHostile = Config.Attack_Hostile;
             attackPassive = Config.Attack_Passive;
-            attackRange = Config.Attack_Range;
         }
 
         public override void Initialize()

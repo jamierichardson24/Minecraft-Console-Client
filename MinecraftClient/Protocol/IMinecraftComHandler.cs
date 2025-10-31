@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
+using MinecraftClient.EntityHandler;
 using MinecraftClient.Inventory;
 using MinecraftClient.Logger;
 using MinecraftClient.Mapping;
 using MinecraftClient.Protocol.Message;
-using MinecraftClient.Protocol.ProfileKey;
 using MinecraftClient.Scripting;
 
 namespace MinecraftClient.Protocol
@@ -19,7 +20,6 @@ namespace MinecraftClient.Protocol
     {
         /* The MinecraftCom Handler must
          * provide these getters */
-
         int GetServerPort();
         string GetServerHost();
         string GetUsername();
@@ -29,7 +29,6 @@ namespace MinecraftClient.Protocol
         string[] GetOnlinePlayers();
         Dictionary<string, string> GetOnlinePlayersWithUUID();
         PlayerInfo? GetPlayerInfo(Guid uuid);
-        PlayerKeyPair? GetPlayerKeyPair();
         Location GetCurrentLocation();
         World GetWorld();
         bool GetIsSupportPreviewsChat();
@@ -46,26 +45,6 @@ namespace MinecraftClient.Protocol
         ILogger GetLogger();
 
         /// <summary>
-        /// Invoke a task on the main thread, wait for completion and retrieve return value.
-        /// </summary>
-        /// <param name="task">Task to run with any type or return value</param>
-        /// <returns>Any result returned from task, result type is inferred from the task</returns>
-        /// <example>bool result = InvokeOnMainThread(methodThatReturnsAbool);</example>
-        /// <example>bool result = InvokeOnMainThread(() => methodThatReturnsAbool(argument));</example>
-        /// <example>int result = InvokeOnMainThread(() => { yourCode(); return 42; });</example>
-        /// <typeparam name="T">Type of the return value</typeparam>
-        T InvokeOnMainThread<T>(Func<T> task);
-
-        /// <summary>
-        /// Invoke a task on the main thread and wait for completion
-        /// </summary>
-        /// <param name="task">Task to run without return value</param>
-        /// <example>InvokeOnMainThread(methodThatReturnsNothing);</example>
-        /// <example>InvokeOnMainThread(() => methodThatReturnsNothing(argument));</example>
-        /// <example>InvokeOnMainThread(() => { yourCode(); });</example>
-        void InvokeOnMainThread(Action task);
-
-        /// <summary>
         /// Called when a network packet received or sent
         /// </summary>
         /// <remarks>
@@ -75,18 +54,18 @@ namespace MinecraftClient.Protocol
         /// <param name="packetData">A copy of Packet Data</param>
         /// <param name="isLogin">The packet is login phase or playing phase</param>
         /// <param name="isInbound">The packet is received from server or sent by client</param>
-        void OnNetworkPacket(int packetID, List<byte> packetData, bool isLogin, bool isInbound);
+        Task OnNetworkPacketAsync(int packetID, byte[] packetData, bool isLogin, bool isInbound);
 
         /// <summary>
         /// Called when a server was successfully joined
         /// </summary>
-        void OnGameJoined(bool isOnlineMode);
+        Task OnGameJoinedAsync();
 
         /// <summary>
         /// Received chat/system message from the server
         /// </summary>
         /// <param name="message">Message received</param>
-        public void OnTextReceived(ChatMessage message);
+        Task OnTextReceivedAsync(ChatMessage message);
 
         /// <summary>
         /// Will be called every animations of the hit and place block
@@ -112,7 +91,7 @@ namespace MinecraftClient.Protocol
         /// <summary>
         /// This method is called when the protocol handler receives a title
         /// </summary>
-        void OnTitle(int action, string titletext, string subtitletext, string actionbartext, int fadein, int stay, int fadeout, string json);
+        Task OnTitle(TitlePacket title);
 
         /// <summary>
         /// Called when receiving a connection keep-alive from the server
@@ -138,36 +117,36 @@ namespace MinecraftClient.Protocol
         /// <summary>
         /// Called when an inventory is opened
         /// </summary>
-        void OnInventoryOpen(int inventoryID, Container inventory);
+        Task OnInventoryOpenAsync(int inventoryID, Container inventory);
 
         /// <summary>
         /// Called when an inventory is closed
         /// </summary>
-        void OnInventoryClose(int inventoryID);
+        Task OnInventoryCloseAsync(int inventoryID);
 
         /// <summary>
         /// Called when the player respawns, which happens on login, respawn and world change.
         /// </summary>
-        void OnRespawn();
+        Task OnRespawnAsync();
 
         /// <summary>
         /// Triggered when a new player joins the game
         /// </summary>
         /// <param name="player">player info</param>
-        public void OnPlayerJoin(PlayerInfo player);
+        Task OnPlayerJoinAsync(PlayerInfo player);
 
         /// <summary>
         /// This method is called when a player has left the game
         /// </summary>
         /// <param name="uuid">UUID of the player</param>
-        void OnPlayerLeave(Guid uuid);
+        Task OnPlayerLeaveAsync(Guid uuid);
 
         /// <summary>
         /// This method is called when a player has been killed by another entity
         /// </summary>
         /// <param name="killerEntityId">Killer's entity if</param>
         /// <param name="chatMessage">message sent in chat when player is killed</param>
-        void OnPlayerKilled(int killerEntityId, string chatMessage);
+        Task OnPlayerKilledAsync(int killerEntityId, string chatMessage);
 
         /// <summary>
         /// Called when the server sets the new location for the player
@@ -183,24 +162,24 @@ namespace MinecraftClient.Protocol
         void OnConnectionLost(ChatBot.DisconnectReason reason, string message);
 
         /// <summary>
-        /// Called ~10 times per second (10 ticks per second)
+        /// Called ~20 times per second (20 ticks per second)
         /// Useful for updating bots in other parts of the program
         /// </summary>
-        void OnUpdate();
+        Task OnUpdate();
 
         /// <summary>
         /// Registers the given plugin channel for the given bot.
         /// </summary>
         /// <param name="channel">The channel to register.</param>
         /// <param name="bot">The bot to register the channel for.</param>
-        void RegisterPluginChannel(string channel, ChatBot bot);
+        Task RegisterPluginChannelAsync(string channel, ChatBot bot);
 
         /// <summary>
         /// Unregisters the given plugin channel for the given bot.
         /// </summary>
         /// <param name="channel">The channel to unregister.</param>
         /// <param name="bot">The bot to unregister the channel for.</param>
-        void UnregisterPluginChannel(string channel, ChatBot bot);
+        Task UnregisterPluginChannelAsync(string channel, ChatBot bot);
 
         /// <summary>
         /// Sends a plugin channel packet to the server.
@@ -210,7 +189,7 @@ namespace MinecraftClient.Protocol
         /// <param name="data">The payload for the packet.</param>
         /// <param name="sendEvenIfNotRegistered">Whether the packet should be sent even if the server or the client hasn't registered it yet.</param>
         /// <returns>Whether the packet was sent: true if it was sent, false if there was a connection error or it wasn't registered.</returns>
-        bool SendPluginChannelMessage(string channel, byte[] data, bool sendEvenIfNotRegistered = false);
+        Task<bool> SendPluginChannelMessageAsync(string channel, byte[] data, bool sendEvenIfNotRegistered = false);
 
         /// <summary>
         /// Called when a plugin channel message was sent from the server.
@@ -223,7 +202,7 @@ namespace MinecraftClient.Protocol
         /// Called when an entity has spawned
         /// </summary>
         /// <param name="entity">Spawned entity</param>
-        void OnSpawnEntity(Entity entity);
+        Task OnSpawnEntity(Entity entity);
 
         /// <summary>
         /// Called when an entity has spawned
@@ -231,7 +210,7 @@ namespace MinecraftClient.Protocol
         /// <param name="entityid">Entity id</param>
         /// <param name="slot">Equipment slot. 0: main hand, 1: off hand, 2–5: armor slot (2: boots, 3: leggings, 4: chestplate, 5: helmet)/param>
         /// <param name="item">Item/param>
-        void OnEntityEquipment(int entityid, int slot, Item? item);
+        Task OnEntityEquipment(int entityid, int slot, Item? item);
 
         /// <summary>
         /// Called when a player spawns or enters the client's render distance
@@ -241,13 +220,13 @@ namespace MinecraftClient.Protocol
         /// <param name="location">Entity location</param>
         /// <param name="yaw">Player head yaw</param>
         /// <param name="pitch">Player head pitch</param>
-        void OnSpawnPlayer(int entityID, Guid uuid, Location location, byte yaw, byte pitch);
+        Task OnSpawnPlayer(int entityID, Guid uuid, Location location, byte yaw, byte pitch);
 
         /// <summary>
         /// Called when entities have despawned
         /// </summary>
         /// <param name="EntityID">List of Entity ID that have despawned</param>
-        void OnDestroyEntities(int[] EntityID);
+        Task OnDestroyEntities(int[] EntityID);
 
         /// <summary>
         /// Called when an entity moved by coordinate offset
@@ -257,28 +236,7 @@ namespace MinecraftClient.Protocol
         /// <param name="Dy">Y offset</param>
         /// <param name="Dz">Z offset</param>
         /// <param name="onGround">TRUE if on ground</param>
-        void OnEntityPosition(int entityID, Double dx, Double dy, Double dz, bool onGround);
-
-        /// <summary>
-        /// Called when an entity moved and rotated
-        /// </summary>
-        /// <param name="EntityID">Entity ID</param>
-        /// <param name="Dx">X offset</param>
-        /// <param name="Dy">Y offset</param>
-        /// <param name="Dz">Z offset</param>
-        /// <param name="yaw">Yaw</param>
-        /// <param name="pitch">Pitch</param>
-        /// <param name="onGround">TRUE if on ground</param>
-        void OnEntityPosition(int entityID, Double dx, Double dy, Double dz, float yaw, float pitch, bool onGround);
-
-        /// <summary>
-        /// Called when an entity rotated
-        /// </summary>
-        /// <param name="EntityID">Entity ID</param>
-        /// <param name="yaw">Yaw</param>
-        /// <param name="pitch">Pitch</param>
-        /// <param name="onGround">TRUE if on ground</param>
-        void OnEntityRotation(int entityID, float yaw, float pitch, bool onGround);
+        Task OnEntityPosition(int entityID, Double dx, Double dy, Double dz, bool onGround);
 
         /// <summary>
         /// Called when an entity moved to fixed coordinates
@@ -288,28 +246,28 @@ namespace MinecraftClient.Protocol
         /// <param name="Dy">Y</param>
         /// <param name="Dz">Z</param>
         /// <param name="onGround">TRUE if on ground</param>
-        void OnEntityTeleport(int entityID, Double x, Double y, Double z, bool onGround);
+        Task OnEntityTeleport(int entityID, Double x, Double y, Double z, bool onGround);
 
         /// <summary>
         /// Called when additional properties have been received for an entity
         /// </summary>
         /// <param name="EntityID">Entity ID</param>
         /// <param name="prop">Dictionary of properties</param>
-        void OnEntityProperties(int entityID, Dictionary<string, Double> prop);
+        Task OnEntityProperties(int entityID, Dictionary<string, Double> prop);
 
         /// <summary>
         /// Called when the status of an entity have been changed
         /// </summary>
         /// <param name="entityID">Entity ID</param>
         /// <param name="status">Status ID</param>
-        void OnEntityStatus(int entityID, byte status);
+        Task OnEntityStatus(int entityID, byte status);
 
         /// <summary>
         /// Called when the world age has been updated
         /// </summary>
         /// <param name="WorldAge">World age</param>
         /// <param name="TimeOfDay">Time of Day</param>
-        void OnTimeUpdate(long worldAge, long timeOfDay);
+        Task OnTimeUpdate(long worldAge, long timeOfDay);
 
         /// <summary>
         /// When received window properties from server.
@@ -318,7 +276,7 @@ namespace MinecraftClient.Protocol
         /// <param name="inventoryID">Inventory ID</param>
         /// <param name="propertyId">Property ID</param>
         /// <param name="propertyValue">Property Value</param>
-        public void OnWindowProperties(byte inventoryID, short propertyId, short propertyValue);
+        Task OnWindowPropertiesAsync(byte inventoryID, short propertyId, short propertyValue);
 
         /// <summary>
         /// Called when inventory items have been received
@@ -326,7 +284,7 @@ namespace MinecraftClient.Protocol
         /// <param name="inventoryID">Inventory ID</param>
         /// <param name="itemList">Item list</param>
         /// <param name="stateId">State ID</param>
-        void OnWindowItems(byte inventoryID, Dictionary<int, Item> itemList, int stateId);
+        Task OnWindowItemsAsync(byte inventoryID, Dictionary<int, Item> itemList, int stateId);
 
         /// <summary>
         /// Called when a single slot has been updated inside an inventory
@@ -335,14 +293,14 @@ namespace MinecraftClient.Protocol
         /// <param name="slotID">Slot ID</param>
         /// <param name="item">Item (may be null for empty slot)</param>
         /// <param name="stateId">State ID</param>
-        void OnSetSlot(byte inventoryID, short slotID, Item? item, int stateId);
+        Task OnSetSlotAsync(byte inventoryID, short slotID, Item? item, int stateId);
 
         /// <summary>
         /// Called when player health or hunger changed.
         /// </summary>
         /// <param name="health"></param>
         /// <param name="food"></param>
-        void OnUpdateHealth(float health, int food);
+        Task OnUpdateHealth(float health, int food);
 
         /// <summary>
         /// Called when the health of an entity changed
@@ -364,21 +322,21 @@ namespace MinecraftClient.Protocol
         /// <param name="location">Explosion location</param>
         /// <param name="strength">Explosion strength</param>
         /// <param name="affectedBlocks">Amount of affected blocks</param>
-        void OnExplosion(Location location, float strength, int affectedBlocks);
+        Task OnExplosion(Location location, float strength, int affectedBlocks);
 
         /// <summary>
         /// Called when a player's game mode has changed
         /// </summary>
         /// <param name="uuid">Affected player's UUID</param>
         /// <param name="gamemode">New game mode</param>
-        void OnGamemodeUpdate(Guid uuid, int gamemode);
+        Task OnGamemodeUpdate(Guid uuid, int gamemode);
 
         /// <summary>
         /// Called when a player's latency has changed
         /// </summary>
         /// <param name="uuid">Affected player's UUID</param>
         /// <param name="latency">latency</param>
-        void OnLatencyUpdate(Guid uuid, int latency);
+        Task OnLatencyUpdate(Guid uuid, int latency);
 
         /// <summary>
         /// Called when Experience bar is updated
@@ -386,18 +344,18 @@ namespace MinecraftClient.Protocol
         /// <param name="Experiencebar">Experience bar level</param>
         /// <param name="Level">Player Level</param>
         /// <param name="TotalExperience">Total experience</param>
-        void OnSetExperience(float Experiencebar, int Level, int TotalExperience);
+        Task OnSetExperience(float Experiencebar, int Level, int TotalExperience);
 
         /// <summary>
         /// Called when client need to change slot.
         /// </summary>
         /// <remarks>Used for setting player slot after joining game</remarks>
         /// <param name="slot"></param>
-        void OnHeldItemChange(byte slot);
+        Task OnHeldItemChange(byte slot);
 
         /// <summary>
         /// Called when an update of the map is sent by the server, take a look at https://wiki.vg/Protocol#Map_Data for more info on the fields
-        /// Map format and colors: https://minecraft.wiki/w/Map_item_format
+        /// Map format and colors: https://minecraft.fandom.com/wiki/Map_item_format
         /// </summary>
         /// <param name="mapid">Map ID of the map being modified</param>
         /// <param name="scale">A scale of the Map, from 0 for a fully zoomed-in map (1 block per pixel) to 4 for a fully zoomed-out map (16 blocks per pixel)</param>
@@ -409,7 +367,7 @@ namespace MinecraftClient.Protocol
         /// <param name="mapCoulmnX">x offset of the westernmost column</param>
         /// <param name="mapRowZ">z offset of the northernmost row</param>
         /// <param name="colors">a byte array of colors on the map</param>
-        void OnMapData(int mapid, byte scale, bool trackingPosition, bool locked, List<MapIcon> icons, byte columnsUpdated, byte rowsUpdated, byte mapCoulmnX, byte mapRowZ, byte[]? colors);
+        Task OnMapData(MapData mapData);
 
         /// <summary>
         /// Called when the Player entity ID has been received from the server
@@ -427,36 +385,26 @@ namespace MinecraftClient.Protocol
         /// <param name="flags">effect flags</param>
         /// <param name="hasFactorData">has factor data</param>
         /// <param name="factorCodec">factorCodec</param>
-        void OnEntityEffect(int entityid, Effects effect, int amplifier, int duration, byte flags, bool hasFactorData, Dictionary<String, object>? factorCodec);
+        Task OnEntityEffect(int entityid, Effect effect);
 
         /// <summary>
-        /// Called when Soreboard Objective
+        /// Called when coreboardObjective
         /// </summary>
-        /// <param name="objectiveName">objective name</param>
+        /// <param name="objectivename">objective name</param>
         /// <param name="mode">0 to create the scoreboard. 1 to remove the scoreboard. 2 to update the display text.</param>
-        /// <param name="objectiveValue">Only if mode is 0 or 2. The text to be displayed for the score</param>
+        /// <param name="objectivevalue">Only if mode is 0 or 2. The text to be displayed for the score</param>
         /// <param name="type">Only if mode is 0 or 2. 0 = "integer", 1 = "hearts".</param>
-        /// <param name="numberFormat">Number format: 0 - blank, 1 - styled, 2 - fixed</param>
-        void OnScoreboardObjective(string objectiveName, byte mode, string objectiveValue, int type, int numberFormat);
+        void OnScoreboardObjective(string objectivename, byte mode, string objectivevalue, int type);
 
         /// <summary>
         /// Called when DisplayScoreboard
         /// </summary>
-        /// <param name="entityName">The entity whose score this is. For players, this is their username; for other entities, it is their UUID.</param>
+        /// <param name="entityname">The entity whose score this is. For players, this is their username; for other entities, it is their UUID.</param>
         /// <param name="action">0 to create/update an item. 1 to remove an item.</param>
-        /// <param name="objectiveName">The name of the objective the score belongs to</param>
-        /// <param name="objectiveDisplayName">The name of the objective the score belongs to, but with chat formatting</param>
-        /// <param name="objectiveValue">The score to be displayed next to the entry. Only sent when Action does not equal 1.</param>
-        /// <param name="numberFormat">Number format: 0 - blank, 1 - styled, 2 - fixed</param>
-        void OnUpdateScore(string entityName, int action, string objectiveName, string objectiveDisplayName, int objectiveValue, int numberFormat);
+        /// <param name="objectivename">The name of the objective the score belongs to</param>
+        /// <param name="value">he score to be displayed next to the entry. Only sent when Action does not equal 1.</param>
+        void OnUpdateScore(string entityname, int action, string objectivename, int value);
 
-        /// <summary>
-        /// Called when the client received the Tab Header and Footer
-        /// </summary>
-        /// <param name="header">Header</param>
-        /// <param name="footer">Footer</param>
-        void OnTabListHeaderAndFooter(string header, string footer);
-        
         /// <summary>
         /// Called when tradeList is received from server
         /// </summary>
@@ -497,8 +445,6 @@ namespace MinecraftClient.Protocol
         /// <param name="result">All commands.</param>
         public void OnAutoCompleteDone(int transactionId, string[] result);
 
-        public void SetCanSendMessage(bool canSendMessage);
-
         /// <summary>
         /// Send a click container button packet to the server.
         /// Used for Enchanting table, Lectern, stone cutter and loom
@@ -507,14 +453,6 @@ namespace MinecraftClient.Protocol
         /// <param name="buttonId">Id of the clicked button</param>
         /// <returns>True if packet was successfully sent</returns>
 
-        bool ClickContainerButton(int windowId, int buttonId);
-        
-        /// <summary>
-        /// Send a rename item packet when the anvil inventory is open and there is an item in the first slot
-        /// </summary>
-        /// <param name="itemName">New name (max 50 characters)</param>
-        /// <returns>True if packet was successfully sent</returns>
-
-        bool SendRenameItem(string itemName);
+        public Task<bool> ClickContainerButton(int windowId, int buttonId);
     }
 }

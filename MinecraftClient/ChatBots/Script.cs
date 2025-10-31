@@ -5,7 +5,6 @@ using System.IO;
 using System.Reflection;
 using System.Text;
 using System.Threading;
-using MinecraftClient.CommandHandler;
 using MinecraftClient.Scripting;
 
 namespace MinecraftClient.ChatBots
@@ -86,7 +85,7 @@ namespace MinecraftClient.ChatBots
         public static bool LookForScript(ref string filename)
         {
             //Automatically look in subfolders and try to add ".txt" file extension
-             char dir_slash = Path.DirectorySeparatorChar;
+            char dir_slash = Path.DirectorySeparatorChar;
             string[] files = new string[]
             {
                 filename,
@@ -131,7 +130,7 @@ namespace MinecraftClient.ChatBots
             //Load the given file from the startup parameters
             if (LookForScript(ref file!))
             {
-                lines = System.IO.File.ReadAllLines(file, Encoding.UTF8);
+                lines = File.ReadAllLines(file, Encoding.UTF8);
                 csharp = file.EndsWith(".cs");
                 thread = null;
 
@@ -205,50 +204,17 @@ namespace MinecraftClient.ChatBots
                                         int ticks = 10;
                                         try
                                         {
-                                            if (instruction_line[5..].Contains("to", StringComparison.OrdinalIgnoreCase) ||
-                                                instruction_line[5..].Contains("-"))
-                                            {
-                                                var processedLine = instruction_line.Replace("wait", "")
-                                                    .Trim()
-                                                    .ToLower();
-                                                processedLine = string.Join("", processedLine.Split(default(string[]), StringSplitOptions.RemoveEmptyEntries));
-                                                var parts = processedLine.Contains("to") ? processedLine.Split("to") : processedLine.Split("-");
-                                                
-                                                if (parts.Length == 2)
-                                                {
-                                                    var min = Convert.ToInt32(parts[0]);
-                                                    var max = Convert.ToInt32(parts[1]);
-
-                                                    if (min > max)
-                                                    {
-                                                        (min, max) = (max, min);
-                                                        LogToConsole(Translations.cmd_wait_random_min_bigger);
-                                                    }
-                                                    
-                                                    ticks = new Random().Next(min, max);
-                                                } else ticks = Convert.ToInt32(instruction_line[5..]);
-                                            } else ticks = Convert.ToInt32(instruction_line[5..]);
+                                            ticks = Convert.ToInt32(instruction_line[5..]);
                                         }
                                         catch { }
                                         sleepticks = ticks;
                                         break;
                                     default:
-                                        CmdResult response = new();
-                                        if (PerformInternalCommand(instruction_line, ref response))
-                                        {
-                                            if (instruction_name.ToLower() != "log")
-                                            {
-                                                LogToConsole(instruction_line);
-                                            }
-                                            if (response.status != CmdResult.Status.Done || !string.IsNullOrWhiteSpace(response.result))
-                                            {
-                                                LogToConsole(response);
-                                            }
-                                        }
-                                        else
+                                        if (!PerformInternalCommand(instruction_line))
                                         {
                                             Update(); //Unknown command : process next line immediately
                                         }
+                                        else if (instruction_name.ToLower() != "log") { LogToConsole(instruction_line); }
                                         break;
                                 }
                             }

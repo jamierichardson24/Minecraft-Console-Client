@@ -164,9 +164,14 @@ namespace MinecraftClient.Protocol.Handlers.PacketPalettes
             { 0x2F, PacketTypesOut.UseItem },
         };
 
-        protected override Dictionary<int, PacketTypesIn> GetListIn() => typeIn;
-        protected override Dictionary<int, PacketTypesOut> GetListOut() => typeOut;
-        protected override Dictionary<int, ConfigurationPacketTypesIn> GetConfigurationListIn() => new();
-        protected override Dictionary<int, ConfigurationPacketTypesOut> GetConfigurationListOut() => new();
+        protected override Dictionary<int, PacketTypesIn> GetListIn()
+        {
+            return typeIn;
+        }
+
+        protected override Dictionary<int, PacketTypesOut> GetListOut()
+        {
+            return typeOut;
+        }
     }
 }

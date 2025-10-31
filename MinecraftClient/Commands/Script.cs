@@ -20,7 +20,7 @@ namespace MinecraftClient.Commands
             );
 
             dispatcher.Register(l => l.Literal(CmdName)
-                .Then(l => l.Argument("Script", MccArguments.ScriptName())
+                .Then(l => l.Argument("Script", Arguments.GreedyString())
                     .Executes(r => DoExecuteScript(r.Source, Arguments.GetString(r, "Script"), null)))
                 .Then(l => l.Literal("_help")
                     .Executes(r => GetUsage(r.Source, string.Empty))
@@ -41,7 +41,7 @@ namespace MinecraftClient.Commands
         private int DoExecuteScript(CmdResult r, string command, Dictionary<string, object>? localVars)
         {
             McClient handler = CmdResult.currentHandler!;
-            handler.BotLoad(new ChatBots.Script(command.Trim(), null, localVars));
+            handler.BotLoad(new ChatBots.Script(command.Trim(), null, localVars)).Wait();
             return r.SetAndReturn(CmdResult.Status.Done);
         }
     }

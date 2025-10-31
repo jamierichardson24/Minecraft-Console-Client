@@ -8,34 +8,35 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Threading.Tasks;
 using MinecraftClient.Protocol;
 using MinecraftClient.Proxy;
 using Tomlet;
 using Tomlet.Attributes;
 using Tomlet.Models;
+using static MinecraftClient.Protocol.ProtocolHandler;
 using static MinecraftClient.Settings.AppVarConfigHelper;
 using static MinecraftClient.Settings.ChatBotConfigHealper;
 using static MinecraftClient.Settings.ChatFormatConfigHelper;
 using static MinecraftClient.Settings.ConsoleConfigHealper;
 using static MinecraftClient.Settings.HeadCommentHealper;
 using static MinecraftClient.Settings.LoggingConfigHealper;
-using static MinecraftClient.Settings.MainConfigHelper;
-using static MinecraftClient.Settings.MainConfigHelper.MainConfig;
-using static MinecraftClient.Settings.MainConfigHelper.MainConfig.AdvancedConfig;
+using static MinecraftClient.Settings.MainConfigHealper;
+using static MinecraftClient.Settings.MainConfigHealper.MainConfig;
+using static MinecraftClient.Settings.MainConfigHealper.MainConfig.AdvancedConfig;
 using static MinecraftClient.Settings.MCSettingsConfigHealper;
 using static MinecraftClient.Settings.SignatureConfigHelper;
 
 namespace MinecraftClient
 {
-    public static class Settings
+    public static partial class Settings
     {
         private const int CommentsAlignPosition = 45;
-        private readonly static Regex CommentRegex = new(@"^(.*)\s?#\s\$([\w\.]+)\$\s*$$", RegexOptions.Compiled);
 
         // Other Settings
         public const string TranslationsFile_Version = "1.19.3";
         public const string TranslationsFile_Website_Index = "https://piston-meta.mojang.com/v1/packages/c492375ded5da34b646b8c5c0842a0028bc69cec/2.json";
-        public const string TranslationsFile_Website_Download = "https://resources.download.minecraft.net";
+        public const string TranslationsFile_Website_Download = "http://resources.download.minecraft.net";
 
         public const string TranslationProjectUrl = "https://crwd.in/minecraft-console-client";
 
@@ -43,7 +44,7 @@ namespace MinecraftClient
 
         public static class InternalConfig
         {
-            public static string ServerIP = String.Empty;
+            public static string ServerIP = string.Empty;
 
             public static ushort ServerPort = 25565;
 
@@ -73,8 +74,8 @@ namespace MinecraftClient
 
             public MainConfig Main
             {
-                get { return MainConfigHelper.Config; }
-                set { MainConfigHelper.Config = value; MainConfigHelper.Config.OnSettingUpdate(); }
+                get { return MainConfigHealper.Config; }
+                set { MainConfigHealper.Config = value; MainConfigHealper.Config.OnSettingUpdate(); }
             }
 
             [TomlPrecedingComment("$Signature$")]
@@ -128,7 +129,7 @@ namespace MinecraftClient
             public ChatBotConfig ChatBot
             {
                 get { return ChatBotConfigHealper.Config; }
-                set { ChatBotConfigHealper.Config = value; }
+                set { ChatBotConfigHealper.Config = value; ChatBotConfigHealper.Config.OnSettingUpdate(); }
             }
 
         }
@@ -180,7 +181,7 @@ namespace MinecraftClient
             return new(true, false);
         }
 
-        public static void WriteToFile(string filepath, bool backupOldFile)
+        public static async Task WriteToFileAsync(string filepath, bool backupOldFile)
         {
             Thread.CurrentThread.CurrentCulture = CultureInfo.InvariantCulture;
             string tomlString = TomletMain.TomlStringFrom(Config);
@@ -190,7 +191,7 @@ namespace MinecraftClient
             StringBuilder newConfig = new();
             foreach (string line in tomlList)
             {
-                Match matchComment = CommentRegex.Match(line);
+                Match matchComment = GetCommentRegex().Match(line);
                 if (matchComment.Success && matchComment.Groups.Count == 3)
                 {
                     string config = matchComment.Groups[1].Value, comment = matchComment.Groups[2].Value;
@@ -215,7 +216,7 @@ namespace MinecraftClient
                 try
                 {
                     if (new FileInfo(filepath).Length == newConfigByte.Length)
-                        if (File.ReadAllBytes(filepath).SequenceEqual(newConfigByte))
+                        if ((await File.ReadAllBytesAsync(filepath)).SequenceEqual(newConfigByte))
                             needUpdate = false;
                 }
                 catch { }
@@ -238,7 +239,7 @@ namespace MinecraftClient
 
                 if (backupSuccessed)
                 {
-                    try { File.WriteAllBytes(filepath, newConfigByte); }
+                    try { await File.WriteAllBytesAsync(filepath, newConfigByte); }
                     catch (Exception ex)
                     {
                         ConsoleIO.WriteLineFormatted("§c" + string.Format(Translations.config_write_fail, filepath));
@@ -252,7 +253,7 @@ namespace MinecraftClient
         /// Load settings from the command line
         /// </summary>
         /// <param name="args">Command-line arguments</param>
-        /// <exception cref="System.ArgumentException">Thrown on invalid arguments</exception>
+        /// <exception cref="ArgumentException">Thrown on invalid arguments</exception>
         public static void LoadArguments(string[] args)
         {
             int positionalIndex = 0;
@@ -293,7 +294,7 @@ namespace MinecraftClient
                                 InternalConfig.Account.Password = argument;
                             break;
                         case 2:
-                            Config.Main.SetServerIP(new MainConfig.ServerInfoConfig(argument), true);
+                            Config.Main.SetServerIP(new ServerInfoConfig(argument), true);
                             InternalConfig.KeepServerSettings = true;
                             break;
                         case 3:
@@ -326,12 +327,12 @@ namespace MinecraftClient
             }
         }
 
-        public static class MainConfigHelper
+        public static partial class MainConfigHealper
         {
             public static MainConfig Config = new();
 
             [TomlDoNotInlineObject]
-            public class MainConfig
+            public partial class MainConfig
             {
                 public GeneralConfig General = new();
 
@@ -385,8 +386,12 @@ namespace MinecraftClient
                         //Server IP (IP or domain names contains at least a dot)
                         if (sip.Length == 1 && !serverInfo.Port.HasValue && host.Contains('.') && host.Any(c => char.IsLetter(c)) &&
                             Settings.Config.Main.Advanced.ResolveSrvRecords != ResolveSrvRecordType.no)
+                        {
                             //Domain name without port may need Minecraft SRV Record lookup
-                            ProtocolHandler.MinecraftServiceLookup(ref host, ref port);
+                            var lookup = MinecraftServiceLookupAsync(host);
+                            if (lookup.Result.Item1)
+                                (host, port) = (lookup.Result.Item2, lookup.Result.Item3);
+                        }
                         InternalConfig.ServerIP = host;
                         InternalConfig.ServerPort = port;
                         return true;
@@ -417,6 +422,12 @@ namespace MinecraftClient
 
                     General.Server.Host ??= string.Empty;
 
+                    if (General.AccountType == GeneralConfig.LoginType.mojang && General.Method == GeneralConfig.LoginMethod.browser)
+                    {
+                        General.Method = GeneralConfig.LoginMethod.mcc;
+                        ConsoleIO.WriteLogLine(Translations.config_invaild_login_method);
+                    }
+
                     if (Advanced.MessageCooldown < 0)
                         Advanced.MessageCooldown = 0;
 
@@ -436,12 +447,12 @@ namespace MinecraftClient
                         Thread.CurrentThread.CurrentUICulture = culture;
                     }
 
-                    Advanced.Language = Regex.Replace(Advanced.Language, @"[^-^_^\w^*\d]", string.Empty).Replace('-', '_');
+                    Advanced.Language = GetLanguageCodeRegex().Replace(Advanced.Language, string.Empty).Replace('-', '_');
                     Advanced.Language = ToLowerIfNeed(Advanced.Language);
                     if (!AvailableLang.Contains(Advanced.Language))
                     {
                         Advanced.Language = GetDefaultGameLanguage();
-                        ConsoleIO.WriteLogLine("[Settings] " + Translations.config_Main_Advanced_language_invaild);
+                        ConsoleIO.WriteLogLine(Translations.config_invaild_language);
                     }
 
                     if (!InternalConfig.KeepServerSettings)
@@ -472,12 +483,6 @@ namespace MinecraftClient
                         Advanced.MinTerminalWidth = 1;
                     if (Advanced.MinTerminalHeight < 1)
                         Advanced.MinTerminalHeight = 1;
-
-                    if (Advanced.TemporaryFixBadpacket && !Advanced.TerrainAndMovements)
-                    {
-                        Advanced.TerrainAndMovements = true;
-                        ConsoleIO.WriteLineFormatted("§c[Settings]You need to enable TerrainAndMovements before enabling TemporaryFixBadpacket.");
-                    }
                 }
 
                 [TomlDoNotInlineObject]
@@ -494,11 +499,8 @@ namespace MinecraftClient
 
                     [TomlInlineComment("$Main.General.method$")]
                     public LoginMethod Method = LoginMethod.mcc;
-                    [TomlInlineComment("$Main.General.AuthlibServer$")]
-                    public AuthlibServer AuthServer = new(string.Empty);
-                  
 
-                    public enum LoginType { mojang, microsoft,yggdrasil };
+                    public enum LoginType { mojang, microsoft };
 
                     public enum LoginMethod { mcc, browser };
                 }
@@ -506,9 +508,6 @@ namespace MinecraftClient
                 [TomlDoNotInlineObject]
                 public class AdvancedConfig
                 {
-                    [TomlInlineComment("$Main.Advanced.enable_sentry$")]
-                    public bool EnableSentry = true;
-                    
                     [TomlInlineComment("$Main.Advanced.language$")]
                     public string Language = "en_us";
 
@@ -522,7 +521,7 @@ namespace MinecraftClient
                     public InternalCmdCharType InternalCmdChar = InternalCmdCharType.slash;
 
                     [TomlInlineComment("$Main.Advanced.message_cooldown$")]
-                    public double MessageCooldown = 1.0;
+                    public double MessageCooldown = 0.4;
 
                     [TomlInlineComment("$Main.Advanced.bot_owners$")]
                     public List<string> BotOwners = new() { "Player1", "Player2" };
@@ -623,9 +622,6 @@ namespace MinecraftClient
                     [TomlInlineComment("$Main.Advanced.MinTerminalHeight$")]
                     public int MinTerminalHeight = 10;
 
-                    [TomlInlineComment("$Main.Advanced.ignore_invalid_playername$")]
-                    public bool IgnoreInvalidPlayerName = true;
-
                     /// <summary>
                     /// Load login/password using an account alias
                     /// </summary>
@@ -661,7 +657,7 @@ namespace MinecraftClient
                     public AccountInfoConfig(string Login)
                     {
                         this.Login = Login;
-                        this.Password = "-";
+                        Password = "-";
                     }
 
                     public AccountInfoConfig(string Login, string Password)
@@ -683,7 +679,7 @@ namespace MinecraftClient
 
                         if (sip.Length > 1)
                         {
-                            try { this.Port = Convert.ToUInt16(sip[1]); }
+                            try { Port = Convert.ToUInt16(sip[1]); }
                             catch (FormatException) { }
                         }
                     }
@@ -694,29 +690,9 @@ namespace MinecraftClient
                         this.Port = Port;
                     }
                 }
-                public struct AuthlibServer
-                {
-                    public string Host = string.Empty;
-                    public int Port = 443;
 
-                    public AuthlibServer(string Host)
-                    {
-                        string[] sip = Host.Split(new[] { ":", "：" }, StringSplitOptions.None);
-                        this.Host = sip[0];
-
-                        if (sip.Length > 1)
-                        {
-                            try { this.Port = Convert.ToUInt16(sip[1]); }
-                            catch (FormatException) { }
-                        }
-                    }
-
-                    public AuthlibServer(string Host, ushort Port)
-                    {
-                        this.Host = Host.Split(new[] { ":", "：" }, StringSplitOptions.None)[0];
-                        this.Port = Port;
-                    }
-                }
+                [GeneratedRegex("[^-^_^\\w^*\\d]")]
+                private static partial Regex GetLanguageCodeRegex();
             }
         }
 
@@ -737,7 +713,7 @@ namespace MinecraftClient
                 public bool SignMessageInCommand = true;
 
                 [TomlInlineComment("$Signature.MarkLegallySignedMsg$")]
-                public bool MarkLegallySignedMsg = true;
+                public bool MarkLegallySignedMsg = false;
 
                 [TomlInlineComment("$Signature.MarkModifiedMsg$")]
                 public bool MarkModifiedMsg = true;
@@ -746,7 +722,7 @@ namespace MinecraftClient
                 public bool MarkIllegallySignedMsg = true;
 
                 [TomlInlineComment("$Signature.MarkSystemMessage$")]
-                public bool MarkSystemMessage = true;
+                public bool MarkSystemMessage = false;
 
                 [TomlInlineComment("$Signature.ShowModifiedChat$")]
                 public bool ShowModifiedChat = true;
@@ -821,6 +797,9 @@ namespace MinecraftClient
 
                 public void OnSettingUpdate()
                 {
+                    if (General.ConsoleColorMode == ConsoleColorModeType.legacy_4bit)
+                        ConsoleIO.WriteLineFormatted("§8" + Translations.config_legacy_color, true);
+
                     // Reader
                     ConsoleInteractive.ConsoleReader.DisplayUesrInput = General.Display_Input;
 
@@ -993,7 +972,7 @@ namespace MinecraftClient
                 /// <returns>True if the parameters were valid</returns>
                 public bool SetVar(string varName, object varData)
                 {
-                    varName = Settings.ToLowerIfNeed(new string(varName.TakeWhile(char.IsLetterOrDigit).ToArray()));
+                    varName = ToLowerIfNeed(new string(varName.TakeWhile(char.IsLetterOrDigit).ToArray()));
                     if (varName.Length > 0)
                     {
                         bool isString = varData.GetType() == typeof(string);
@@ -1101,7 +1080,7 @@ namespace MinecraftClient
                             if (varname_ok)
                             {
                                 string varname = var_name.ToString();
-                                string varname_lower = Settings.ToLowerIfNeed(varname);
+                                string varname_lower = ToLowerIfNeed(varname);
                                 i = i + varname.Length + 1;
 
                                 switch (varname_lower)
@@ -1112,7 +1091,7 @@ namespace MinecraftClient
                                     case "serverport": result.Append(InternalConfig.ServerPort); break;
                                     case "datetime":
                                         DateTime time = DateTime.Now;
-                                        result.Append(String.Format("{0}-{1}-{2} {3}:{4}:{5}",
+                                        result.Append(string.Format("{0}-{1}-{2} {3}:{4}:{5}",
                                             time.Year.ToString("0000"),
                                             time.Month.ToString("00"),
                                             time.Day.ToString("00"),
@@ -1200,13 +1179,13 @@ namespace MinecraftClient
                     public byte GetByte()
                     {
                         return (byte)(
-                              ((Cape ? 1 : 0) << 0)
-                            | ((Jacket ? 1 : 0) << 1)
-                            | ((Sleeve_Left ? 1 : 0) << 2)
-                            | ((Sleeve_Right ? 1 : 0) << 3)
-                            | ((Pants_Left ? 1 : 0) << 4)
-                            | ((Pants_Right ? 1 : 0) << 5)
-                            | ((Hat ? 1 : 0) << 6)
+                              (Cape ? 1 : 0) << 0
+                            | (Jacket ? 1 : 0) << 1
+                            | (Sleeve_Left ? 1 : 0) << 2
+                            | (Sleeve_Right ? 1 : 0) << 3
+                            | (Pants_Left ? 1 : 0) << 4
+                            | (Pants_Right ? 1 : 0) << 5
+                            | (Hat ? 1 : 0) << 6
                         );
                     }
                 }
@@ -1242,27 +1221,27 @@ namespace MinecraftClient
                         catch (ArgumentException)
                         {
                             checkResult = false;
-                            ConsoleIO.WriteLineFormatted("§c[Settings]Illegal regular expression: ChatFormat.Public = " + Public);
+                            ConsoleIO.WriteLineFormatted("§cIllegal regular expression: ChatFormat.Public = " + Public);
                         }
 
                         try { _ = new Regex(Private); }
                         catch (ArgumentException)
                         {
                             checkResult = false;
-                            ConsoleIO.WriteLineFormatted("§c[Settings]Illegal regular expression: ChatFormat.Private = " + Private);
+                            ConsoleIO.WriteLineFormatted("§cIllegal regular expression: ChatFormat.Private = " + Private);
                         }
 
                         try { _ = new Regex(TeleportRequest); }
                         catch (ArgumentException)
                         {
                             checkResult = false;
-                            ConsoleIO.WriteLineFormatted("§c[Settings]Illegal regular expression: ChatFormat.TeleportRequest = " + TeleportRequest);
+                            ConsoleIO.WriteLineFormatted("§cIllegal regular expression: ChatFormat.TeleportRequest = " + TeleportRequest);
                         }
 
                         if (!checkResult)
                         {
                             UserDefined = false;
-                            ConsoleIO.WriteLineFormatted("§c[Settings]ChatFormat: User-defined regular expressions are disabled.");
+                            ConsoleIO.WriteLineFormatted("§cChatFormat: User-defined regular expressions are disabled.");
                         }
                     }
                 }
@@ -1276,6 +1255,8 @@ namespace MinecraftClient
             [TomlDoNotInlineObject]
             public class ChatBotConfig
             {
+                public void OnSettingUpdate() { }
+
                 [TomlPrecedingComment("$ChatBot.Alerts$")]
                 public ChatBots.Alerts.Configs Alerts
                 {
@@ -1428,17 +1409,6 @@ namespace MinecraftClient
                 {
                     get { return ChatBots.TelegramBridge.Config; }
                     set { ChatBots.TelegramBridge.Config = value; ChatBots.TelegramBridge.Config.OnSettingUpdate(); }
-                }
-
-                [TomlPrecedingComment("$ChatBot.ItemsCollector$")]
-                public ChatBots.ItemsCollector.Configs ItemsCollector
-                {
-                    get { return ChatBots.ItemsCollector.Config; }
-                    set
-                    {
-                        ChatBots.ItemsCollector.Config = value;
-                        ChatBots.ItemsCollector.Config.OnSettingUpdate();
-                    }
                 }
             }
         }
@@ -1870,9 +1840,9 @@ namespace MinecraftClient
             const string lookupStringL = "---------------------------------!-#$%&-()*+,-./0123456789:;<=>?@abcdefghijklmnopqrstuvwxyz[-]^_`abcdefghijklmnopqrstuvwxyz{|}~-";
 
             bool needLower = false;
-            foreach (Char c in str)
+            foreach (char c in str)
             {
-                if (Char.IsUpper(c))
+                if (char.IsUpper(c))
                 {
                     needLower = true;
                     break;
@@ -1898,6 +1868,10 @@ namespace MinecraftClient
             time = Math.Min(int.MaxValue / 10, time);
             return (int)Math.Round(time * 10);
         }
+
+
+        [GeneratedRegex("^(.*)\\s?#\\s\\$([\\w\\.]+)\\$\\s*$$", RegexOptions.Compiled)]
+        private static partial Regex GetCommentRegex();
     }
 
     public static class InternalCmdCharTypeExtensions

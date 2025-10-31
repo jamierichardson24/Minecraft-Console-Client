@@ -23,11 +23,6 @@ namespace MinecraftClient.Inventory
         public int Count;
 
         /// <summary>
-        /// Item Count
-        /// </summary>
-        public int Data;
-
-        /// <summary>
         /// Item Metadata
         /// </summary>
         public Dictionary<string, object>? NBT;
@@ -44,11 +39,6 @@ namespace MinecraftClient.Inventory
             Count = count;
             NBT = nbt;
         }
-        
-        public Item(ItemType itemType, int count, int data, Dictionary<string, object>? nbt) : this(itemType, count, nbt)
-        {
-            Data = data;
-        }
 
         /// <summary>
         /// Check if the item slot is empty
@@ -56,7 +46,10 @@ namespace MinecraftClient.Inventory
         /// <returns>TRUE if the item is empty</returns>
         public bool IsEmpty
         {
-            get { return Type == ItemType.Air || Count == 0; }
+            get
+            {
+                return Type == ItemType.Air || Count == 0;
+            }
         }
 
         /// <summary>
@@ -68,15 +61,13 @@ namespace MinecraftClient.Inventory
             {
                 if (NBT != null && NBT.ContainsKey("display"))
                 {
-                    if (NBT["display"] is Dictionary<string, object> displayProperties &&
-                        displayProperties.ContainsKey("Name"))
+                    if (NBT["display"] is Dictionary<string, object> displayProperties && displayProperties.ContainsKey("Name"))
                     {
                         string? displayName = displayProperties["Name"] as string;
                         if (!String.IsNullOrEmpty(displayName))
                             return ChatParser.ParseText(displayProperties["Name"].ToString() ?? string.Empty);
                     }
                 }
-
                 return null;
             }
         }
@@ -91,17 +82,15 @@ namespace MinecraftClient.Inventory
                 List<string> lores = new();
                 if (NBT != null && NBT.ContainsKey("display"))
                 {
-                    if (NBT["display"] is Dictionary<string, object> displayProperties &&
-                        displayProperties.ContainsKey("Lore"))
+                    if (NBT["display"] is Dictionary<string, object> displayProperties && displayProperties.ContainsKey("Lore"))
                     {
                         object[] displayName = (object[])displayProperties["Lore"];
                         lores.AddRange(from string st in displayName
-                            let str = ChatParser.ParseText(st.ToString())
-                            select str);
+                                       let str = ChatParser.ParseText(st.ToString())
+                                       select str);
                         return lores.ToArray();
                     }
                 }
-
                 return null;
             }
         }
@@ -118,11 +107,9 @@ namespace MinecraftClient.Inventory
                     object damage = NBT["Damage"];
                     if (damage != null)
                     {
-                        return int.Parse(damage.ToString() ?? string.Empty, NumberStyles.Any,
-                            CultureInfo.CurrentCulture);
+                        return int.Parse(damage.ToString() ?? string.Empty, NumberStyles.Any, CultureInfo.CurrentCulture);
                     }
                 }
-
                 return 0;
             }
         }
@@ -152,28 +139,19 @@ namespace MinecraftClient.Inventory
 
             try
             {
-                if (NBT != null && (NBT.TryGetValue("Enchantments", out object? enchantments) ||
-                                    NBT.TryGetValue("StoredEnchantments", out enchantments)))
+                if (NBT != null && (NBT.TryGetValue("Enchantments", out object? enchantments) || NBT.TryGetValue("StoredEnchantments", out enchantments)))
                 {
                     foreach (Dictionary<string, object> enchantment in (object[])enchantments)
                     {
                         short level = (short)enchantment["lvl"];
                         string id = ((string)enchantment["id"]).Replace(':', '.');
                         sb.AppendFormat(" | {0} {1}",
-                            ChatParser.TranslateString("enchantment." + id) ?? id,
-                            ChatParser.TranslateString("enchantment.level." + level) ?? level.ToString());
+                                        ChatParser.TranslateString("enchantment." + id) ?? id,
+                                        ChatParser.TranslateString("enchantment.level." + level) ?? level.ToString());
                     }
                 }
-
-                if (Lores != null && Lores.Length > 0)
-                {
-                    foreach (var lore in Lores)
-                        sb.AppendFormat(" | {0}", lore);
-                }
             }
-            catch (Exception)
-            {
-            }
+            catch (Exception) { }
 
             return sb.ToString();
         }

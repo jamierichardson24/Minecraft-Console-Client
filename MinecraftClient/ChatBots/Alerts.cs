@@ -92,10 +92,10 @@ namespace MinecraftClient.ChatBots
                 text = GetVerbatim(text).ToLower();
 
                 //Proceed only if no exclusions are found in text
-                if (!Config.Excludes.Any(exclusion => text.Contains(exclusion.ToLower())))
+                if (!Config.Excludes.Any(exclusion => text.Contains(exclusion)))
                 {
                     //Show an alert for each alert item found in text, if any
-                    foreach (string alert in Config.Matches.Where(alert => text.Contains(alert.ToLower())))
+                    foreach (string alert in Config.Matches.Where(alert => text.Contains(alert)))
                     {
                         if (Config.Beep_Enabled)
                             Console.Beep(); //Text found !

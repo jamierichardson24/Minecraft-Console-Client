@@ -1,22 +1,34 @@
 ﻿using System;
 using System.Security.Cryptography;
+using System.Text.Json.Serialization;
 using MinecraftClient.Protocol.Message;
-using static MinecraftClient.Protocol.Message.LastSeenMessageList;
 
 namespace MinecraftClient.Protocol.ProfileKey
 {
     public class PrivateKey
     {
+        [JsonInclude]
+        [JsonPropertyName("Key")]
         public byte[] Key { get; set; }
 
+        [JsonIgnore]
         private readonly RSA rsa;
 
+        [JsonIgnore]
         private byte[]? precedingSignature = null;
 
         public PrivateKey(string pemKey)
         {
             Key = KeyUtils.DecodePemKey(pemKey, "-----BEGIN RSA PRIVATE KEY-----", "-----END RSA PRIVATE KEY-----");
 
+            rsa = RSA.Create();
+            rsa.ImportPkcs8PrivateKey(Key, out _);
+        }
+
+        [JsonConstructor]
+        public PrivateKey(byte[] Key)
+        {
+            this.Key = Key;
             rsa = RSA.Create();
             rsa.ImportPkcs8PrivateKey(Key, out _);
         }
@@ -44,7 +56,7 @@ namespace MinecraftClient.Protocol.ProfileKey
         }
 
         /// <summary>
-        /// Sign message - 1.19.1 and 1.19.2
+        /// Sign message - 1.19.1 and above
         /// </summary>
         /// <param name="message">Message content</param>
         /// <param name="uuid">Sender uuid</param>
@@ -63,22 +75,6 @@ namespace MinecraftClient.Protocol.ProfileKey
             precedingSignature = msgSign;
 
             return msgSign;
-        }
-
-        /// <summary>
-        /// Sign message - 1.19.3 and above
-        /// </summary>
-        /// <param name="message">Message content</param>
-        /// <param name="uuid">Sender uuid</param>
-        /// <param name="timestamp">Timestamp</param>
-        /// <param name="salt">Salt</param>
-        /// <param name="lastSeenMessages">LastSeenMessageList</param>
-        /// <returns>Signature data</returns>
-        public byte[] SignMessage(string message, Guid playerUuid, Guid chatUuid, int messageIndex, DateTimeOffset timestamp, ref byte[] salt, AcknowledgedMessage[] lastSeenMessages)
-        {
-            byte[] bodySignData = KeyUtils.GetSignatureData_1_19_3(message, playerUuid, chatUuid, messageIndex, timestamp, ref salt, lastSeenMessages);
-
-            return SignData(bodySignData);
         }
 
     }

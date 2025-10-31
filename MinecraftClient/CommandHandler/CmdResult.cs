@@ -22,7 +22,7 @@ namespace MinecraftClient.CommandHandler
         public CmdResult()
         {
             this.status = Status.NotRun;
-            this.result = "Command did not run, cannot determine the result of the command.";
+            this.result = null;
         }
 
         public Status status;
@@ -35,7 +35,7 @@ namespace MinecraftClient.CommandHandler
             this.result = status switch
             {
 #pragma warning disable format // @formatter:off
-                Status.NotRun             =>  "Command did not run, cannot determine the result of the command.",
+                Status.NotRun             =>  null,
                 Status.FailChunkNotLoad   =>  null,
                 Status.FailNeedEntity     =>  Translations.extra_entity_required,
                 Status.FailNeedInventory  =>  Translations.extra_inventory_required,

@@ -88,7 +88,6 @@ namespace MinecraftClient.Scripting
                         "using System.Net;",
                         "using System.Threading;",
                         "using MinecraftClient;",
-                        "using MinecraftClient.Scripting;",
                         "using MinecraftClient.Mapping;",
                         "using MinecraftClient.Inventory;",
                         string.Join("\n", libs),
@@ -116,15 +115,10 @@ namespace MinecraftClient.Scripting
 
                         foreach (var failure in result.Failures)
                         {
-                            // Get the line that contains the error:
-
-                            var loc = failure.Location.GetMappedLineSpan();
-                            var line = code.Split('\n')[loc.StartLinePosition.Line];
-                            
-                            ConsoleIO.WriteLogLine($"[Script] Error in {scriptName}, on line ({line.Trim()}): [{failure.Id}] {failure.GetMessage()}");
+                            ConsoleIO.WriteLogLine($"[Script] Error in {scriptName}, line:col{failure.Location.GetMappedLineSpan()}: [{failure.Id}] {failure.GetMessage()}");
                         }
 
-                        throw new CSharpException(CSErrorType.InvalidScript, new InvalidProgramException("Compilation failed due to error(s)."));
+                        throw new CSharpException(CSErrorType.InvalidScript, new InvalidProgramException("Compilation failed due to error."));
                     }
 
                     ConsoleIO.WriteLogLine("[Script] Compilation done with no errors.");
@@ -187,7 +181,8 @@ namespace MinecraftClient.Scripting
         public CSErrorType ExceptionType { get { return _type; } }
         public override string Message { get { return InnerException!.Message; } }
         public override string ToString() { return InnerException!.ToString(); }
-        public CSharpException(CSErrorType type, Exception inner) : base(inner.Message, inner)
+        public CSharpException(CSErrorType type, Exception inner)
+            : base(inner != null ? inner.Message : "", inner)
         {
             _type = type;
         }
@@ -379,7 +374,7 @@ namespace MinecraftClient.Scripting
         /// <returns>True if the server IP was valid and loaded, false otherwise</returns>
         public bool SetServer(string server, bool andReconnect = false)
         {
-            bool result = Config.Main.SetServerIP(new MainConfigHelper.MainConfig.ServerInfoConfig(server), true);
+            bool result = Config.Main.SetServerIP(new MainConfigHealper.MainConfig.ServerInfoConfig(server), true);
             if (result && andReconnect)
                 ReconnectToTheServer(keepAccountAndServerSettings: true);
             return result;

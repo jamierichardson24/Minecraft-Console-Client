@@ -8,12 +8,15 @@ using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using MinecraftClient.Proxy;
 
 namespace MinecraftClient
 {
-    internal static class UpgradeHelper
+    internal static partial class UpgradeHelper
     {
-        private const string GithubReleaseUrl = "https://github.com/MCCTeam/Minecraft-Console-Client/releases";
+        internal const string GithubReleaseUrl = "https://github.com/MCCTeam/Minecraft-Console-Client/releases";
+
+        // private static HttpClient? httpClient = null;
 
         private static int running = 0; // Type: bool; 1 for running; 0 for stopped;
         private static CancellationTokenSource cancellationTokenSource = new();
@@ -23,29 +26,17 @@ namespace MinecraftClient
         private static DateTime downloadStartTime = DateTime.Now, lastNotifyTime = DateTime.Now;
         private static TimeSpan minNotifyInterval = TimeSpan.FromMilliseconds(3000);
 
-        public static void CheckUpdate(bool forceUpdate = false)
+        public static async Task CheckUpdate(bool forceUpdate = false)
         {
-            bool needPromptUpdate = true;
-            if (!forceUpdate && CompareVersionInfo(Settings.Config.Head.CurrentVersion, Settings.Config.Head.LatestVersion))
+            await DoCheckUpdate(CancellationToken.None);
+            if (CompareVersionInfo(Settings.Config.Head.CurrentVersion, Settings.Config.Head.LatestVersion))
             {
-                needPromptUpdate = false;
                 ConsoleIO.WriteLineFormatted("§e" + string.Format(Translations.mcc_has_update, GithubReleaseUrl), true);
             }
-            Task.Run(() =>
+            else if (forceUpdate)
             {
-                DoCheckUpdate(CancellationToken.None);
-                if (needPromptUpdate)
-                {
-                    if (CompareVersionInfo(Settings.Config.Head.CurrentVersion, Settings.Config.Head.LatestVersion))
-                    {
-                        ConsoleIO.WriteLineFormatted("§e" + string.Format(Translations.mcc_has_update, GithubReleaseUrl), true);
-                    }
-                    else if (forceUpdate)
-                    {
-                        ConsoleIO.WriteLine(Translations.mcc_update_already_latest + ' ' + Translations.mcc_update_promote_force_cmd);
-                    }
-                }
-            });
+                ConsoleIO.WriteLine(Translations.mcc_update_already_latest + ' ' + Translations.mcc_update_promote_force_cmd);
+            }
         }
 
         public static bool DownloadLatestBuild(bool forceUpdate, bool isCommandLine = false)
@@ -71,7 +62,7 @@ namespace MinecraftClient
                     }
                     else
                     {
-                        string latestVersion = DoCheckUpdate(cancellationToken);
+                        string latestVersion = await DoCheckUpdate(cancellationToken);
                         if (cancellationToken.IsCancellationRequested)
                         {
                         }
@@ -89,7 +80,7 @@ namespace MinecraftClient
                             ConsoleIO.WriteLine(string.Format(Translations.mcc_update_exist_update, latestVersion, OSInfo));
 
                             HttpClientHandler httpClientHandler = new() { AllowAutoRedirect = true };
-                            AddProxySettings(httpClientHandler);
+                            ProxyHandler.AddProxySettings(ProxyHandler.ClientType.Update, ref httpClientHandler);
 
                             ProgressMessageHandler progressMessageHandler = new(httpClientHandler);
                             progressMessageHandler.HttpReceiveProgress += (_, info) =>
@@ -125,45 +116,31 @@ namespace MinecraftClient
 
                             try
                             {
-                                string downloadUrl = $"{GithubReleaseUrl}/download/{latestVersion}/";
-                                string fileNameWithoutExtension = $"MinecraftClient-{latestVersion}-{OSInfo}";
-                                string fileName = fileNameWithoutExtension + GetExecutableFileExtension();
+                                string downloadUrl = $"{GithubReleaseUrl}/download/{latestVersion}/MinecraftClient-{OSInfo}.zip";
                                 downloadStartTime = DateTime.Now;
                                 lastNotifyTime = DateTime.MinValue;
                                 lastBytesTransferred = 0;
+                                using HttpResponseMessage response = await httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                                using Stream zipFileStream = await response.Content.ReadAsStreamAsync(cancellationToken);
 
-                                bool hasFile = true;
-                                HttpResponseMessage response = await httpClient.GetAsync(downloadUrl + fileName, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-                                if (!response.IsSuccessStatusCode)
+                                if (!cancellationToken.IsCancellationRequested)
                                 {
-                                    fileName = fileNameWithoutExtension + ".zip";
-                                    response = await httpClient.GetAsync(downloadUrl + fileName, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-                                    if (!response.IsSuccessStatusCode)
+                                    using ZipArchive zipArchive = new(zipFileStream, ZipArchiveMode.Read);
+                                    ConsoleIO.WriteLine(Translations.mcc_update_download_complete);
+                                    foreach (var archiveEntry in zipArchive.Entries)
                                     {
-                                        hasFile = false;
-                                        ConsoleIO.WriteLine($"{Translations.mcc_update_download_fail} File {fileNameWithoutExtension}{GetExecutableFileExtension()} not found.");
+                                        if (archiveEntry.Name.StartsWith("MinecraftClient"))
+                                        {
+                                            string fileName = $"MinecraftClient-{latestVersion}{Path.GetExtension(archiveEntry.Name)}";
+                                            archiveEntry.ExtractToFile(fileName, true);
+                                            ConsoleIO.WriteLineFormatted("§e" + string.Format(Translations.mcc_update_save_as, fileName), true);
+                                            break;
+                                        }
                                     }
+                                    zipArchive.Dispose();
                                 }
 
-                                if (hasFile)
-                                {
-                                    using (FileStream fileStream = File.Create(fileName))
-                                    {
-                                        await response.Content.CopyToAsync(fileStream);
-                                    }
-
-                                    ConsoleIO.WriteLineFormatted("§e" + string.Format(Translations.mcc_update_save_as, fileName), true);
-
-                                    if (!OperatingSystem.IsWindows())
-                                        File.SetUnixFileMode(fileName, UnixFileMode.UserRead
-                                                                       | UnixFileMode.UserWrite
-                                                                       | UnixFileMode.UserExecute
-                                                                       | UnixFileMode.GroupRead
-                                                                       | UnixFileMode.GroupExecute
-                                                                       | UnixFileMode.OtherRead
-                                                                       | UnixFileMode.OtherExecute);
-                                }
-
+                                zipFileStream.Dispose();
                                 response.Dispose();
                             }
                             catch (TaskCanceledException) { }
@@ -197,97 +174,66 @@ namespace MinecraftClient
                 Thread.Sleep(500);
         }
 
-        private static string DoCheckUpdate(CancellationToken cancellationToken)
+        internal static async Task<string> DoCheckUpdate(CancellationToken cancellationToken)
         {
             string latestBuildInfo = string.Empty;
+
             HttpClientHandler httpClientHandler = new() { AllowAutoRedirect = false };
-            AddProxySettings(httpClientHandler);
-            HttpClient httpClient = new(httpClientHandler);
-            Task<HttpResponseMessage>? httpWebRequest = null;
-            try
+            ProxyHandler.AddProxySettings(ProxyHandler.ClientType.Update, ref httpClientHandler);
+            using HttpClient httpClient = new(httpClientHandler);
+            using HttpRequestMessage request = new(HttpMethod.Head, GithubReleaseUrl + "/latest");
+            using HttpResponseMessage response = await httpClient.SendAsync(request, cancellationToken);
+            if (!cancellationToken.IsCancellationRequested)
             {
-                httpWebRequest = httpClient.GetAsync(GithubReleaseUrl + "/latest", HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-                httpWebRequest.Wait();
-                if (!cancellationToken.IsCancellationRequested)
+                if (response.Headers.Location != null)
                 {
-                    HttpResponseMessage res = httpWebRequest.Result;
-                    if (res.Headers.Location != null)
+                    Match match = GetReleaseUrlRegex().Match(response.Headers.Location.ToString());
+                    if (match.Success && match.Groups.Count == 5)
                     {
-                        Match match = Regex.Match(res.Headers.Location.ToString(), GithubReleaseUrl + @"/tag/(\d{4})(\d{2})(\d{2})-(\d+)");
-                        if (match.Success && match.Groups.Count == 5)
+                        string year = match.Groups[1].Value, month = match.Groups[2].Value, day = match.Groups[3].Value, run = match.Groups[4].Value;
+                        string latestVersion = string.Format("GitHub build {0}, built on {1}-{2}-{3}", run, year, month, day);
+                        latestBuildInfo = string.Format("{0}{1}{2}-{3}", year, month, day, run);
+                        if (latestVersion != Settings.Config.Head.LatestVersion)
                         {
-                            string year = match.Groups[1].Value, month = match.Groups[2].Value, day = match.Groups[3].Value, run = match.Groups[4].Value;
-                            string latestVersion = string.Format("GitHub build {0}, built on {1}-{2}-{3}", run, year, month, day);
-                            latestBuildInfo = string.Format("{0}{1}{2}-{3}", year, month, day, run);
-                            if (latestVersion != Settings.Config.Head.LatestVersion)
-                            {
-                                Settings.Config.Head.LatestVersion = latestVersion;
-                                Program.WriteBackSettings(false);
-                            }
+                            Settings.Config.Head.LatestVersion = latestVersion;
+                            _ = Program.WriteBackSettings(false);
                         }
                     }
-                    res.Dispose();
                 }
-                httpWebRequest.Dispose();
             }
-            catch (Exception) { }
-            finally { httpWebRequest?.Dispose(); }
-            httpClient.Dispose();
-            httpClientHandler.Dispose();
             return latestBuildInfo;
         }
 
         private static string GetOSIdentifier()
         {
-            string OSPlatformName;
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                OSPlatformName = "win";
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-                OSPlatformName = "linux";
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-                OSPlatformName = "osx";
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.FreeBSD))
-                OSPlatformName = "freebsd";
-            else
-                return string.Empty;
-
-            string architecture = RuntimeInformation.ProcessArchitecture switch
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
-                Architecture.X86 => "x86",
-                Architecture.X64 => "x64",
-                Architecture.Arm => "arm32",
-                Architecture.Arm64 => "arm64",
-                Architecture.Wasm => "wasm",
-                Architecture.S390x => "s390x",
-                Architecture.LoongArch64 => "loongarch64",
-                Architecture.Armv6 => "armv6",
-                Architecture.Ppc64le => "ppc64le",
-                _ => RuntimeInformation.ProcessArchitecture.ToString(),
-            };
-
-            return OSPlatformName + '-' + architecture;
-        }
-
-        private static string GetExecutableFileExtension()
-        {
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                return ".exe";
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-                return string.Empty;
+                if (RuntimeInformation.ProcessArchitecture == Architecture.Arm64)
+                    return "linux-arm64";
+                else if (RuntimeInformation.ProcessArchitecture == Architecture.X64)
+                    return "linux";
+            }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-                return string.Empty;
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.FreeBSD))
-                return string.Empty;
-            else
-                return string.Empty;
+            {
+                if (RuntimeInformation.ProcessArchitecture == Architecture.X64)
+                    return "osx";
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                if (RuntimeInformation.ProcessArchitecture == Architecture.X64)
+                    return "windows-x64";
+                else if (RuntimeInformation.ProcessArchitecture == Architecture.X86)
+                    return "windows-x86";
+            }
+            return string.Empty;
         }
 
-        private static bool CompareVersionInfo(string? current, string? latest)
+        internal static bool CompareVersionInfo(string? current, string? latest)
         {
             if (current == null || latest == null)
                 return false;
-            Regex reg = new(@"\w+\sbuild\s(\d+),\sbuilt\son\s(\d{4})[-\/\.\s]?(\d{2})[-\/\.\s]?(\d{2}).*");
-            Regex reg2 = new(@"\w+\sbuild\s(\d+),\sbuilt\son\s\w+\s(\d{2})[-\/\.\s]?(\d{2})[-\/\.\s]?(\d{4}).*");
+            Regex reg = GetVersionRegex1();
+            Regex reg2 = GetVersionRegex2();
 
             DateTime? curTime = null, latestTime = null;
 
@@ -337,24 +283,13 @@ namespace MinecraftClient
                 return false;
         }
 
-        private static void AddProxySettings(HttpClientHandler httpClientHandler)
-        {
-            if (Settings.Config.Proxy.Enabled_Update)
-            {
-                string proxyAddress;
-                if (!string.IsNullOrWhiteSpace(Settings.Config.Proxy.Username) && !string.IsNullOrWhiteSpace(Settings.Config.Proxy.Password))
-                    proxyAddress = string.Format("{0}://{3}:{4}@{1}:{2}",
-                        Settings.Config.Proxy.Proxy_Type.ToString().ToLower(),
-                        Settings.Config.Proxy.Server.Host,
-                        Settings.Config.Proxy.Server.Port,
-                        Settings.Config.Proxy.Username,
-                        Settings.Config.Proxy.Password);
-                else
-                    proxyAddress = string.Format("{0}://{1}:{2}",
-                        Settings.Config.Proxy.Proxy_Type.ToString().ToLower(),
-                        Settings.Config.Proxy.Server.Host, Settings.Config.Proxy.Server.Port);
-                httpClientHandler.Proxy = new WebProxy(proxyAddress, true);
-            }
-        }
+        [GeneratedRegex("https://github.com/MCCTeam/Minecraft-Console-Client/releases/tag/(\\d{4})(\\d{2})(\\d{2})-(\\d+)")]
+        private static partial Regex GetReleaseUrlRegex();
+
+        [GeneratedRegex("\\w+\\sbuild\\s(\\d+),\\sbuilt\\son\\s(\\d{4})[-\\/\\.\\s]?(\\d{2})[-\\/\\.\\s]?(\\d{2}).*")]
+        private static partial Regex GetVersionRegex1();
+
+        [GeneratedRegex("\\w+\\sbuild\\s(\\d+),\\sbuilt\\son\\s\\w+\\s(\\d{2})[-\\/\\.\\s]?(\\d{2})[-\\/\\.\\s]?(\\d{4}).*")]
+        private static partial Regex GetVersionRegex2();
     }
 }

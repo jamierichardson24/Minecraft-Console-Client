@@ -4,38 +4,34 @@ namespace MinecraftClient.Protocol.Message
 {
     public class ChatMessage
     {
-        /// <summary>
-        /// In 1.19 and above,  isSignedChat = true
-        /// </summary>
-        public bool isSignedChat;
+        // in 1.19 and above,  isSignedChat = true
+        public readonly bool isSignedChat;
 
-        public string content;
+        public readonly string content;
 
-        public bool isJson, isSenderJson;
+        public readonly bool isJson;
 
-        /// <summary>
-        ///  0: chat (chat box), 1: system message (chat box), 2: game info (above hotbar), 3: say command,
-        ///  4: msg command,     5: team msg command,          6: emote command,            7: tellraw command
-        /// </summary>
-        public int chatTypeId;
+        //  0: chat (chat box), 1: system message (chat box), 2: game info (above hotbar), 3: say command,
+        //  4: msg command,     5: team msg command,          6: emote command,            7: tellraw command
+        public readonly int chatTypeId;
 
-        public Guid senderUUID;
+        public readonly Guid senderUUID;
 
-        public bool isSystemChat;
+        public readonly bool isSystemChat;
 
-        public string? unsignedContent;
+        public readonly string? unsignedContent;
 
-        public string? displayName;
+        public readonly string? displayName;
 
-        public string? teamName;
+        public readonly string? teamName;
 
-        public DateTime? timestamp;
+        public readonly DateTime? timestamp;
 
-        public byte[]? signature;
+        public readonly byte[]? signature;
 
-        public bool? isSignatureLegal;
+        public readonly bool? isSignatureLegal;
 
-        public ChatMessage(string content, bool isJson, int chatType, Guid senderUUID, string? unsignedContent, string displayName, string? teamName, long timestamp, byte[]? signature, bool isSignatureLegal)
+        public ChatMessage(string content, bool isJson, int chatType, Guid senderUUID, string? unsignedContent, string displayName, string? teamName, long timestamp, byte[] signature, bool isSignatureLegal)
         {
             isSignedChat = true;
             isSystemChat = false;
@@ -51,20 +47,19 @@ namespace MinecraftClient.Protocol.Message
             this.isSignatureLegal = isSignatureLegal;
         }
 
-        public ChatMessage(string content, string? displayName, bool isJson, int chatType, Guid senderUUID, bool isSystemChat = false)
+        public ChatMessage(string content, bool isJson, int chatType, Guid senderUUID, bool isSystemChat = false)
         {
             isSignedChat = isSystemChat;
             this.isSystemChat = isSystemChat;
             this.content = content;
-            this.displayName = displayName;
             this.isJson = isJson;
             chatTypeId = chatType;
             this.senderUUID = senderUUID;
         }
 
-        public LastSeenMessageList.AcknowledgedMessage? ToLastSeenMessageEntry()
+        public LastSeenMessageList.Entry? ToLastSeenMessageEntry()
         {
-            return signature != null ? new LastSeenMessageList.AcknowledgedMessage(senderUUID, signature, true) : null;
+            return signature != null ? new LastSeenMessageList.Entry(senderUUID, signature) : null;
         }
 
         public bool LacksSender()

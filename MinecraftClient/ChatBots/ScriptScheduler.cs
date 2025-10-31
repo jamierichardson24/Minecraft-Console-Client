@@ -1,5 +1,4 @@
 ﻿using System;
-using MinecraftClient.CommandHandler;
 using MinecraftClient.Scripting;
 using Tomlet.Attributes;
 using static MinecraftClient.ChatBots.ScriptScheduler.Configs;
@@ -192,10 +191,7 @@ namespace MinecraftClient.ChatBots
                                     {
                                         task.Trigger_On_Time_Already_Triggered = true;
                                         LogDebugToConsole(string.Format(Translations.bot_scriptScheduler_running_time, task.Action));
-                                        CmdResult response = new();
-                                        PerformInternalCommand(task.Action, ref response);
-                                        if (response.status != CmdResult.Status.Done || !string.IsNullOrWhiteSpace(response.result))
-                                            LogToConsole(response);
+                                        PerformInternalCommand(task.Action);
                                     }
                                 }
                             }
@@ -213,10 +209,7 @@ namespace MinecraftClient.ChatBots
                         if (task.Trigger_On_Login || (firstlogin_done == false && task.Trigger_On_First_Login))
                         {
                             LogDebugToConsole(string.Format(Translations.bot_scriptScheduler_running_login, task.Action));
-                            CmdResult response = new();
-                            PerformInternalCommand(task.Action, ref response);
-                            if (response.status != CmdResult.Status.Done || !string.IsNullOrWhiteSpace(response.result))
-                                LogToConsole(response);
+                            PerformInternalCommand(task.Action);
                         }
                     }
 
@@ -236,20 +229,17 @@ namespace MinecraftClient.ChatBots
                             Settings.DoubleToTick(task.Trigger_On_Interval.MinTime), Settings.DoubleToTick(task.Trigger_On_Interval.MaxTime)
                         );
                         LogDebugToConsole(string.Format(Translations.bot_scriptScheduler_running_inverval, task.Action));
-                        CmdResult response = new();
-                        PerformInternalCommand(task.Action, ref response);
-                        if (response.status != CmdResult.Status.Done || !string.IsNullOrWhiteSpace(response.result))
-                            LogToConsole(response);
+                        PerformInternalCommand(task.Action);
                     }
                     else task.Trigger_On_Interval_Countdown--;
                 }
             }
         }
 
-        public override bool OnDisconnect(DisconnectReason reason, string message)
+        public override int OnDisconnect(DisconnectReason reason, string message)
         {
             serverlogin_done = false;
-            return false;
+            return base.OnDisconnect(reason, message);
         }
 
         private static string Task2String(TaskConfig task)

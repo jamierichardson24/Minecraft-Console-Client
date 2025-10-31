@@ -20,21 +20,15 @@ namespace MinecraftClient.Protocol
 
         public string? DisplayName;
 
-        public bool Listed = true;
-
         // Entity info
 
-        public Mapping.Entity? entity;
+        public EntityHandler.Entity? entity;
 
         // For message signature
 
-        public int MessageIndex = -1;
+        private readonly PublicKey? PublicKey;
 
-        public Guid ChatUuid = Guid.Empty;
-
-        private PublicKey? PublicKey;
-
-        private DateTime? KeyExpiresAt;
+        private readonly DateTime? KeyExpiresAt;
 
         private bool lastMessageVerified;
 
@@ -77,28 +71,6 @@ namespace MinecraftClient.Protocol
             precedingSignature = null;
         }
 
-        public void ClearPublicKey()
-        {
-            ChatUuid = Guid.Empty;
-            PublicKey = null;
-            KeyExpiresAt = null;
-        }
-
-        public void SetPublicKey(Guid chatUuid, long publicKeyExpiryTime, byte[] encodedPublicKey, byte[] publicKeySignature)
-        {
-            ChatUuid = chatUuid;
-            KeyExpiresAt = DateTimeOffset.FromUnixTimeMilliseconds(publicKeyExpiryTime).UtcDateTime;
-            try
-            {
-                PublicKey = new PublicKey(encodedPublicKey, publicKeySignature);
-                lastMessageVerified = true;
-            }
-            catch (System.Security.Cryptography.CryptographicException)
-            {
-                PublicKey = null;
-            }
-        }
-
         public bool IsMessageChainLegal()
         {
             return lastMessageVerified;
@@ -133,7 +105,7 @@ namespace MinecraftClient.Protocol
         }
 
         /// <summary>
-        /// Verify message - 1.19.1 and 1.19.2
+        /// Verify message - 1.19.1 and above
         /// </summary>
         /// <param name="message">Message content</param>
         /// <param name="timestamp">Timestamp</param>
@@ -171,7 +143,7 @@ namespace MinecraftClient.Protocol
         }
 
         /// <summary>
-        /// Verify message head - 1.19.1 and 1.19.2
+        /// Verify message head - 1.19.1 and above
         /// </summary>
         /// <param name="precedingSignature">Preceding message signature</param>
         /// <param name="headerSignature">Message signature</param>
@@ -198,25 +170,6 @@ namespace MinecraftClient.Protocol
             this.precedingSignature = headerSignature;
 
             return res;
-        }
-
-        /// <summary>
-        /// Verify message - 1.19.3 and above
-        /// </summary>
-        /// <param name="message">Message content</param>
-        /// <param name="timestamp">Timestamp</param>
-        /// <param name="salt">Salt</param>
-        /// <param name="signature">Message signature</param>
-        /// <param name="precedingSignature">Preceding message signature</param>
-        /// <param name="lastSeenMessages">LastSeenMessages</param>
-        /// <returns>Is this message chain vaild</returns>
-        public bool VerifyMessage(string message, Guid playerUuid, Guid chatUuid, int messageIndex, long timestamp, long salt, ref byte[] signature, Tuple<int, byte[]?>[] previousMessageSignatures)
-        {
-            if (PublicKey == null || IsKeyExpired())
-                return false;
-
-            // net.minecraft.server.network.ServerPlayNetworkHandler#validateMessage
-            return true;
         }
     }
 }

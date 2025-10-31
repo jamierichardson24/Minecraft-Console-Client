@@ -189,9 +189,6 @@ You need to enable Entity Handling to use this bot
   <data name="ChatBot.AutoAttack.Attack_Passive" xml:space="preserve">
     <value>Allow attacking passive mobs.</value>
   </data>
-  <data name="ChatBot.AutoAttack.Attack_Range" xml:space="preserve">
-    <value>Capped between 1 to 4</value>
-  </data>
   <data name="ChatBot.AutoAttack.Cooldown_Time" xml:space="preserve">
     <value>How long to wait between each attack. Set "Custom = false" to let MCC calculate it.</value>
   </data>
@@ -703,7 +700,7 @@ Usage examples: "/tell &lt;mybot&gt; connect Server1", "/connect Server2"</value
     <value>Messages displayed above xp bar, set this to false in case of xp bar spam.</value>
   </data>
   <data name="Main.Advanced.temporary_fix_badpacket" xml:space="preserve">
-    <value>Temporary fix for Badpacket issue on some servers. Need to enable "TerrainAndMovements" first.</value>
+    <value>Temporary fix for Badpacket issue on some servers.</value>
   </data>
   <data name="Main.Advanced.terrain_and_movements" xml:space="preserve">
     <value>Uses more ram, cpu, bandwidth but allows you to move around.</value>
@@ -724,7 +721,7 @@ Usage examples: "/tell &lt;mybot&gt; connect Server1", "/connect Server2"</value
     <value>Microsoft Account sign-in method: "mcc" OR "browser". If the login always fails, please try to use the "browser" once.</value>
   </data>
   <data name="Main.General.server_info" xml:space="preserve">
-    <value>Account type: "mojang" OR "microsoft" OR "yggdrasil". Also affects interactive login in console.</value>
+    <value>Account type: "mojang" OR "microsoft". Also affects interactive login in console.</value>
   </data>
   <data name="MCSettings" xml:space="preserve">
     <value>Settings below are sent to the server and only affect server-side things like your skin.</value>
@@ -754,15 +751,16 @@ Usage examples: "/tell &lt;mybot&gt; connect Server1", "/connect Server2"</value
     <value>Connect to a server via a proxy instead of connecting directly
 If Mojang session services are blocked on your network, set Enabled_Login=true to login using proxy.
 If the connection to the Minecraft game server is blocked by the firewall, set Enabled_Ingame=true to use a proxy to connect to the game server.
-/!\ Make sure your server rules allow Proxies or VPNs before setting enabled=true, or you may face consequences!</value>
+/!\ Make sure your server rules allow Proxies or VPNs before setting enabled=true, or you may face consequences!
+Use "custom", "follow_system" or "disable".</value>
   </data>
-  <data name="Proxy.Enabled_Ingame" xml:space="preserve">
+  <data name="Proxy.Ingame_Proxy" xml:space="preserve">
     <value>Whether to connect to the game server through a proxy.</value>
   </data>
-  <data name="Proxy.Enabled_Login" xml:space="preserve">
+  <data name="Proxy.Login_Proxy" xml:space="preserve">
     <value>Whether to connect to the login server through a proxy.</value>
   </data>
-  <data name="Proxy.Enabled_Update" xml:space="preserve">
+  <data name="Proxy.MCC_Update_Proxy" xml:space="preserve">
     <value>Whether to download MCC updates via proxy.</value>
   </data>
   <data name="Proxy.Password" xml:space="preserve">
@@ -806,53 +804,5 @@ If the connection to the Minecraft game server is blocked by the firewall, set E
   </data>
   <data name="Signature.SignMessageInCommand" xml:space="preserve">
     <value>Whether to sign the messages contained in the commands sent by MCC. For example, the message in "/msg" and "/me"</value>
-  </data>
-  <data name="ChatBot.ItemsCollector.Collect_All_Item_Types" xml:space="preserve">
-    <value>If set to true, the bot will collect all items, regardless of their type. If you want to use the whitelisted item types, disable this by setting it to false</value>
-  </data>
-  <data name="ChatBot.ItemsCollector.Items_Whitelist" xml:space="preserve">
-    <value>In this list you can specify which items the bot will collect. To enable this, set the Collect_All_Item_Types to false. (NOTE: This does not prevent the bot from accidentally picking up other items, it only goes to positions where it finds the whitelisted items)\nYou can see the list of item types here: https://raw.githubusercontent.com/MCCTeam/Minecraft-Console-Client/master/MinecraftClient/Inventory/ItemType.cs</value>
-  </data>
-  <data name="ChatBot.ItemsCollector.Delay_Between_Tasks" xml:space="preserve">
-    <value>Delay in milliseconds between bot scanning items (Recommended: 300-500)</value>
-  </data>
-  <data name="ChatBot.ItemsCollector.Collection_Radius" xml:space="preserve">
-    <value>The radius in which bot will look for items to collect (Default: 30)</value>
-  </data>
-  <data name="ChatBot.ItemsCollector.Always_Return_To_Start" xml:space="preserve">
-    <value>If set to true, the bot will return to it's starting position after there are no items to collect</value>
-  </data>
-  <data name="ChatBot.ItemsCollector.Prioritize_Clusters" xml:space="preserve">
-    <value>If set to true, the bot will go after clustered items instead for the closest ones</value>
-  </data>
-  <data name="ChatBot.ItemsCollector" xml:space="preserve">
-    <value>A Chat Bot that collects items on the ground</value>
-  </data>
-  <data name="ChatBot.WebSocketBot" xml:space="preserve">
-    <value>Remotely control the client using Web Sockets.\n# This is useful if you want to implement an application that can remotely and asynchronously execute procedures in MCC.\n# Example implementation written in JavaScript: https://github.com/milutinke/MCC.js.git\n# The protocol specification will be available in the documentation soon.</value>
-  </data>
-  <data name="ChatBot.WebSocketBot.Ip" xml:space="preserve">
-    <value>The IP address that Websocket server will be bound to.</value>
-  </data>
-  <data name="ChatBot.WebSocketBot.Port" xml:space="preserve">
-    <value>The Port that Websocket server will be bounded to.</value>
-  </data>
-  <data name="ChatBot.WebSocketBot.Password" xml:space="preserve">
-    <value>A password that will be used to authenticate on thw Websocket server (It is recommended to change the default password and to set a strong one).</value>
-  </data>
-  <data name="ChatBot.WebSocketBot.DebugMode" xml:space="preserve">
-    <value>This setting is for developers who are developing a library that uses this chat bot to remotely execute procedures/commands/functions.</value>
-  </data>
-  <data name="ChatBot.WebSocketBot.AllowIpAlias" xml:space="preserve">
-    <value>Allow IP aliases, such as "localhost" or if using containers then the container name can be used...</value>
-  </data>
-  <data name="Main.Advanced.ignore_invalid_playername" xml:space="preserve">
-    <value>Ignore invalid player name</value>
-  </data>
-  <data name="Main.General.AuthlibServer" xml:space="preserve">
-    <value>Yggdrasil authlib server domain name and port.</value>
-  </data>
-  <data name="Main.Advanced.enable_sentry" xml:space="preserve">
-    <value>Set to false to opt-out of Sentry error logging.</value>
   </data>
 </root>

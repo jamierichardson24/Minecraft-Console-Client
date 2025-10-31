@@ -29,40 +29,33 @@ namespace MinecraftClient.Protocol.Handlers.PacketPalettes
     {
         protected abstract Dictionary<int, PacketTypesIn> GetListIn();
         protected abstract Dictionary<int, PacketTypesOut> GetListOut();
-        protected abstract Dictionary<int, ConfigurationPacketTypesIn> GetConfigurationListIn();
-        protected abstract Dictionary<int, ConfigurationPacketTypesOut> GetConfigurationListOut();
 
         private readonly Dictionary<PacketTypesIn, int> reverseMappingIn = new();
-        private readonly Dictionary<PacketTypesOut, int> reverseMappingOut = new();
 
-        private readonly Dictionary<ConfigurationPacketTypesIn, int> configurationReverseMappingIn = new();
-        private readonly Dictionary<ConfigurationPacketTypesOut, int> configurationReverseMappingOut = new();
+        private readonly Dictionary<PacketTypesOut, int> reverseMappingOut = new();
 
         private bool forgeEnabled = false;
 
         public PacketTypePalette()
         {
             foreach (var p in GetListIn())
+            {
                 reverseMappingIn.Add(p.Value, p.Key);
-
+            }
             foreach (var p in GetListOut())
+            {
                 reverseMappingOut.Add(p.Value, p.Key);
-
-            foreach (var p in GetConfigurationListIn())
-                configurationReverseMappingIn.Add(p.Value, p.Key);
-
-            foreach (var p in GetConfigurationListOut())
-                configurationReverseMappingOut.Add(p.Value, p.Key);
+            }
         }
 
         /// <summary>
-        /// Get incoming packet type by packet ID
+        /// Get incomming packet type by packet ID
         /// </summary>
         /// <param name="packetId">packet ID</param>
         /// <returns>Packet type</returns>
-        public PacketTypesIn GetIncomingTypeById(int packetId)
+        public PacketTypesIn GetIncommingTypeById(int packetId)
         {
-            if (GetListIn().TryGetValue(packetId, out var p))
+            if (GetListIn().TryGetValue(packetId, out PacketTypesIn p))
             {
                 return p;
             }
@@ -77,41 +70,14 @@ namespace MinecraftClient.Protocol.Handlers.PacketPalettes
         }
 
         /// <summary>
-        /// Get incoming packet ID by packet type
+        /// Get incomming packet ID by packet type
         /// </summary>
         /// <param name="packetType">Packet type</param>
         /// <returns>packet ID</returns>
-        public int GetIncomingIdByType(PacketTypesIn packetType) => reverseMappingIn[packetType];
-
-        /// <summary>
-        /// Get incoming configuration packet type by packet ID
-        /// </summary>
-        /// <param name="packetId">packet ID</param>
-        /// <returns>Packet type</returns>
-        public ConfigurationPacketTypesIn GetIncomingConfigurationTypeById(int packetId)
+        public int GetIncommingIdByType(PacketTypesIn packetType)
         {
-            if (GetConfigurationListIn().TryGetValue(packetId, out var p))
-            {
-                return p;
-            }
-            else if (forgeEnabled)
-            {
-                if (Settings.Config.Logging.DebugMessages)
-                    ConsoleIO.WriteLogLine("Ignoring unknown packet ID of 0x" + packetId.ToString("X2"));
-                return ConfigurationPacketTypesIn.Unknown;
-            }
-            else
-                throw new KeyNotFoundException("Configuration Packet ID of 0x" + packetId.ToString("X2") +
-                                               " doesn't exist!");
+            return reverseMappingIn[packetType];
         }
-
-        /// <summary>
-        /// Get incoming packet ID by packet type for configuration packets
-        /// </summary>
-        /// <param name="packetType">Packet type</param>
-        /// <returns>packet ID</returns>
-        public int GetIncomingIdByType(ConfigurationPacketTypesIn packetType) =>
-            configurationReverseMappingIn[packetType];
 
         /// <summary>
         /// Get outgoing packet type by packet ID
@@ -120,7 +86,7 @@ namespace MinecraftClient.Protocol.Handlers.PacketPalettes
         /// <returns>Packet type</returns>
         public PacketTypesOut GetOutgoingTypeById(int packetId)
         {
-            if (GetListOut().TryGetValue(packetId, out var p))
+            if (GetListOut().TryGetValue(packetId, out PacketTypesOut p))
             {
                 return p;
             }
@@ -139,61 +105,29 @@ namespace MinecraftClient.Protocol.Handlers.PacketPalettes
         /// </summary>
         /// <param name="packetType">Packet type</param>
         /// <returns>Packet ID</returns>
-        public int GetOutgoingIdByType(PacketTypesOut packetType) => reverseMappingOut[packetType];
+        public int GetOutgoingIdByType(PacketTypesOut packetType)
+        {
+            return reverseMappingOut[packetType];
+        }
+
 
         /// <summary>
-        /// Get outgoing configuration packet type by packet ID
+        /// Public method for getting the type mapping
         /// </summary>
-        /// <param name="packetId">Packet ID</param>
-        /// <returns>Packet type</returns>
-        public ConfigurationPacketTypesOut GetOutgoingConfigurationTypeById(int packetId)
+        /// <returns>PacketTypesIn with packet ID as index</returns>
+        public Dictionary<int, PacketTypesIn> GetMappingIn()
         {
-            if (GetConfigurationListOut().TryGetValue(packetId, out var p))
-            {
-                return p;
-            }
-            else if (forgeEnabled)
-            {
-                if (Settings.Config.Logging.DebugMessages)
-                    ConsoleIO.WriteLogLine("Ignoring unknown packet ID of 0x" + packetId.ToString("X2"));
-                return ConfigurationPacketTypesOut.Unknown;
-            }
-            else
-                throw new KeyNotFoundException("Configuration Packet ID of 0x" + packetId.ToString("X2") +
-                                               " doesn't exist!");
+            return GetListIn();
         }
 
         /// <summary>
-        /// Get outgoing packet ID by packet type for configuration packets
-        /// </summary>
-        /// <param name="packetType">Packet type</param>
-        /// <returns>Packet ID</returns>
-        public int GetOutgoingIdByTypeConfiguration(ConfigurationPacketTypesOut packetType) =>
-            configurationReverseMappingOut[packetType];
-
-        /// <summary>
-        /// Public method for getting the type mapping
-        /// </summary>
-        /// <returns>PacketTypesIn with packet ID as index</returns>
-        public Dictionary<int, PacketTypesIn> GetMappingIn() => GetListIn();
-
-        /// <summary>
         /// Public method for getting the type mapping
         /// </summary>
         /// <returns>PacketTypesOut with packet ID as index</returns>
-        public Dictionary<int, PacketTypesOut> GetMappingOut() => GetListOut();
-
-        /// <summary>
-        /// Public method for getting the type mapping for configuration packets
-        /// </summary>
-        /// <returns>PacketTypesIn with packet ID as index</returns>
-        public Dictionary<int, ConfigurationPacketTypesIn> GetMappingInConfiguration() => GetConfigurationListIn();
-
-        /// <summary>
-        /// Public method for getting the type mapping for configuration packets
-        /// </summary>
-        /// <returns>PacketTypesOut with packet ID as index</returns>
-        public Dictionary<int, ConfigurationPacketTypesOut> GetMappingOutConfiguration() => GetConfigurationListOut();
+        public Dictionary<int, PacketTypesOut> GetMappingOut()
+        {
+            return GetListOut();
+        }
 
         /// <summary>
         /// Enable forge or disable forge

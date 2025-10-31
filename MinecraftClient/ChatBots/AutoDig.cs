@@ -285,7 +285,7 @@ namespace MinecraftClient.ChatBots
                     if (Config.Mode == Configs.ModeType.lookat ||
                         (Config.Mode == Configs.ModeType.both && Config._Locations.Contains(blockLoc)))
                     {
-                        if (DigBlock(blockLoc, Direction.Down, lookAtBlock: false))
+                        if (DigBlock(blockLoc, lookAtBlock: false))
                         {
                             currentDig = blockLoc;
                             if (Config.Log_Block_Dig)
@@ -346,7 +346,7 @@ namespace MinecraftClient.ChatBots
 
                 if (minDistance <= 6.0)
                 {
-                    if (DigBlock(target, Direction.Down, lookAtBlock: true))
+                    if (DigBlock(target, lookAtBlock: true))
                     {
                         currentDig = target;
                         if (Config.Log_Block_Dig)
@@ -380,7 +380,7 @@ namespace MinecraftClient.ChatBots
                         ((Config.List_Type == Configs.ListType.whitelist && Config.Blocks.Contains(block.Type)) ||
                         (Config.List_Type == Configs.ListType.blacklist && !Config.Blocks.Contains(block.Type))))
                     {
-                        if (DigBlock(blockLoc, Direction.Down, lookAtBlock: true))
+                        if (DigBlock(blockLoc, lookAtBlock: true))
                         {
                             currentDig = blockLoc;
                             if (Config.Log_Block_Dig)
@@ -437,10 +437,9 @@ namespace MinecraftClient.ChatBots
             StopDigging();
         }
 
-        public override bool OnDisconnect(DisconnectReason reason, string message)
+        public override int OnDisconnect(DisconnectReason reason, string message)
         {
             StopDigging();
-
             return base.OnDisconnect(reason, message);
         }
     }
